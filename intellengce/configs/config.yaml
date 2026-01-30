@@ -1,8 +1,0 @@
-project:
-  name: scam_intel_extractor
-  version: 1.0
-
-paths:
-  raw_data: data/raw
-  processed_data: data/processed
-  logs: logs
