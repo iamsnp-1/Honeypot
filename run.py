@@ -52,17 +52,20 @@ def handle_input(input_json):
         return reply
 
 if __name__ == "__main__":
-    print("Agent started. Enter messages directly for testing.\n")
-    session_id = "test_session"
+    print("Agent started. Enter JSON input.\n")
     
     while True:
-        message = input("Message: ").strip()
-        if not message:
-            print("Please enter a message.\n")
+        raw = input("JSON Input: ").strip()
+        if not raw:
+            print("Please enter valid JSON.\n")
             continue
-        
-        # Create test input data
-        data = {"session_id": session_id, "message": message}
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            print("Invalid JSON format. Try again.\n")
+            continue
+
         result = handle_input(data)
         
         # Only print if it's a single message (multiple messages already printed)
