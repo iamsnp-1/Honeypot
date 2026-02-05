@@ -2,91 +2,111 @@ import os
 import yaml
 import logging
 
-from extraction.data_loader import load_all_conversations
-from extraction.regex_extractor import extract_phone_numbers, extract_upi_ids
-from validation.validators import validate_phone_numbers, validate_upi_ids
-from storage.json_storage import save_to_json
-from extraction.llm_extractor import ai_extract_insights
-from extraction.scam_classifier import classify_scam
-from extraction.regex_extractor import extract_phishing_links
-from extraction.keyword_extractor import extract_suspicious_keywords
+from intelligence.extraction.regex_extractor import (
+    extract_phone_numbers,
+    extract_upi_ids,
+    extract_phishing_links
+)
+from intelligence.validation.validators import (
+    validate_phone_numbers,
+    validate_upi_ids
+)
+from intelligence.storage.json_storage import save_to_json
+from intelligence.extraction.llm_extractor import ai_extract_insights
+from intelligence.extraction.scam_classifier import classify_scam
+from intelligence.extraction.keyword_extractor import extract_suspicious_keywords
 
 
+# ---------------- CONFIG & LOGGING ---------------- #
 
+BASE_DIR = os.path.dirname(__file__)
+CONFIG_PATH = os.path.join(BASE_DIR, "configs", "config.yaml")
+STORAGE_DIR = os.path.join(BASE_DIR, "storage")
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+
+os.makedirs(STORAGE_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def load_config():
-    with open("configs/config.yaml", "r") as file:
-        return yaml.safe_load(file)
+    with open(CONFIG_PATH, "r") as f:
+        return yaml.safe_load(f)
 
 
-def setup_logging(log_path):
-    os.makedirs(log_path, exist_ok=True)
+def setup_logging():
     logging.basicConfig(
-        filename=os.path.join(log_path, "system.log"),
+        filename=os.path.join(LOG_DIR, "system.log"),
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
 
-def main():
-    print("Starting Scam Intelligence Extraction System...")
+# ---------------- MAIN RUNTIME FUNCTION ---------------- #
 
-    config = load_config()
-    setup_logging(config["paths"]["logs"])
+def run_intelligence(session: dict):
+    print("🔥 run_intelligence CALLED for session:", session.get("sessionId"))
 
-    raw_data_path = config["paths"]["raw_data"]
+    """
+    Runs intelligence extraction on a LIVE session.
+    Called from /message endpoint.
+    """
 
-    conversations = load_all_conversations(raw_data_path)
+    setup_logging()
 
-    print(f"Loaded {len(conversations)} conversation(s)")
-    logging.info(f"Loaded {len(conversations)} conversation(s)")
+    session_id = session.get("sessionId")
+    messages = session.get("messages", [])
+    # ✅ Convert message dicts → plain text strings
+    texts = []
 
-    for file_name, messages in conversations.items():
-        raw_phones = extract_phone_numbers(messages)
-        raw_upis = extract_upi_ids(messages)
+    for msg in messages:
+        if isinstance(msg, dict) and "text" in msg:
+            texts.append(msg["text"])
+        elif isinstance(msg, str):
+            texts.append(msg)
 
-        phones = validate_phone_numbers(raw_phones)
-        upis = validate_upi_ids(raw_upis)
+    if not session_id or not messages:
+        logging.warning("No session data available for intelligence")
+        return
 
-        ai_insights = ai_extract_insights(messages)
+    logging.info(f"Processing intelligence for session {session_id}")
 
-        links = extract_phishing_links(messages)
-        suspicious_keywords = extract_suspicious_keywords(messages)
-
-
-        scam_label = classify_scam(messages, ai_insights)
-
-        api_payload = {
-            "sessionId": file_name.replace(".txt", "-session-id"),
-            "scamDetected": True,
-            "totalMessagesExchanged": len(messages),
-            "extractedIntelligence": {
-                "bankAccounts": [],
-                "upiIds": upis,
-                "phishingLinks": links,
-                "phoneNumbers": phones,
-                "suspiciousKeywords": suspicious_keywords
-            },
-            "agentNotes": "Scammer used urgency tactics and payment redirection"
-        }
-
-        save_to_json(
-            api_payload,
-            "data/processed",
-            file_name.replace(".txt", ".json")
-        )
-
-        print(f"Saved output for {file_name}")
-
-        print(f"\nConversation: {file_name}")
-        print("Phone Numbers:", phones)
-        print("UPI IDs:", upis)
-
-        print("Messages:")
-        for msg in messages:
-            print(msg)
+    # ---- Extraction ---- #
+    raw_phones = extract_phone_numbers(texts)
+    raw_upis = extract_upi_ids(texts)
+    links = extract_phishing_links(texts)
+    suspicious_keywords = extract_suspicious_keywords(texts)
+    phones = validate_phone_numbers(raw_phones)
+    upis = validate_upi_ids(raw_upis)
+    ai_insights = ai_extract_insights(texts)
+    scam_label = classify_scam(texts, ai_insights)
 
 
-if __name__ == "__main__":
-    main()
+
+    # ---- Final Intelligence Object ---- #
+    intelligence_payload = {
+        "sessionId": session_id,
+        "scamDetected": bool(scam_label),
+        "totalMessagesExchanged": len(messages),
+        "extractedIntelligence": {
+            "bankAccounts": [],
+            "upiIds": upis,
+            "phishingLinks": links,
+            "phoneNumbers": phones,
+            "suspiciousKeywords": suspicious_keywords
+        },
+        "agentNotes": "Urgency tactics and payment redirection observed"
+    }
+
+    # ---- Persist ---- #
+    output_file = f"{session_id}.json"
+    save_to_json(
+        filename=f"{session_id}.json",
+        data=intelligence_payload
+
+    )
+
+
+    # ---- Attach to session (for callback use) ---- #
+    session["extractedIntelligence"] = intelligence_payload
+
+    logging.info(f"Saved intelligence for session {session_id}")

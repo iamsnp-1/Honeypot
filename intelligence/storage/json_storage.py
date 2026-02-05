@@ -1,13 +1,21 @@
-import json
 import os
+import json
+
+BASE_DIR = os.path.dirname(__file__)
+PROCESSED_DIR = os.path.join(BASE_DIR, "processed")
+
+os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 
-def save_to_json(data, output_path, file_name):
-    os.makedirs(output_path, exist_ok=True)
+def save_to_json(filename: str, data: dict):
+    """
+    Safely save intelligence output to processed JSON file.
+    """
 
-    full_path = os.path.join(output_path, file_name)
+    file_path = os.path.join(PROCESSED_DIR, filename)
 
-    with open(full_path, "w", encoding="utf-8") as file:
-        json.dump(data, file, indent=4)
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
-    return full_path
+    print("✅ JSON write completed:", file_path)
+    return file_path
