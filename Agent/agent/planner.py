@@ -14,21 +14,27 @@ class AgentPlanner:
     # ---------------- BAIT LOGIC ---------------- #
 
     def generate_bait_question(self, state):
-        intel = state.intelligence.to_dict()
+    intel = state.intelligence.to_dict()
+    last_msg = state.history[-1]["message"].lower()
 
-        if not intel.get("upiIds"):
-            return "Which UPI ID was this payment sent to?"
+    # 🧠 If scammer mentions OTP / account first → clarify account
+    if ("otp" in last_msg or "account" in last_msg) and not intel.get("bankAccounts"):
+        return "Which bank account are you referring to?"
 
-        if not intel.get("phoneNumbers"):
-            return "Is this linked to my registered mobile number?"
+    # 🧠 If payment / transfer mentioned → ask UPI
+    if ("payment" in last_msg or "transfer" in last_msg or "upi" in last_msg) and not intel.get("upiIds"):
+        return "Which UPI ID was this payment sent to?"
 
-        if not intel.get("bankAccounts"):
-            return "Can you confirm which bank account this is showing?"
+    # 🧠 If verification / call implied → ask phone
+    if ("call" in last_msg or "mobile" in last_msg or "number" in last_msg) and not intel.get("phoneNumbers"):
+        return "Is this linked to my registered mobile number?"
 
-        if not intel.get("phishingLinks"):
-            return "The link you sent didn’t open. Can you resend it?"
+    # 🧠 If link hinted → ask link
+    if ("link" in last_msg or "click" in last_msg) and not intel.get("phishingLinks"):
+        return "The link didn’t open. Can you resend it?"
 
-        return None
+    return None
+
 
     # ---------------- STRATEGY SELECTION ---------------- #
 
