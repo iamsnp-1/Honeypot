@@ -1,9 +1,0 @@
-{
-  "name": "clean_exit",
-  "initial_phase": "hook",
-  "conversation": [
-    "Share your UPI ID immediately.",
-    "Hurry up, time is running.",
-    "This is your last warning."
-  ]
-}

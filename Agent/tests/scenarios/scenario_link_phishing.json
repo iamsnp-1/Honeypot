@@ -1,9 +1,0 @@
-{
-  "name": "link_phishing",
-  "initial_phase": "hook",
-  "conversation": [
-    "Update your KYC immediately using this link: http://kyc-update-secure.in",
-    "This is official government website.",
-    "Fill all details and submit quickly."
-  ]
-}
