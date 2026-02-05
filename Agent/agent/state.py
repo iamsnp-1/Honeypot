@@ -39,6 +39,9 @@ class ConversationState:
             # Payment request or link appears → EXTRACT
             if detected_intent in ["upi_request", "send_link", "money_request"]:
                 self.phase = Phase.PROBING
+            if self.phase == Phase.CLARIFICATION and "transaction" in self.resolved_probes:
+                self.phase = Phase.PROBING
+
         
         elif self.phase == Phase.PROBING:
             # Repeated pressure → DELAY
@@ -70,4 +73,5 @@ class ConversationState:
             return True
             
         return False
+
 
