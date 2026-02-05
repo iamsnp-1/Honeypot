@@ -1,20 +1,29 @@
 from fastapi import FastAPI, Header, HTTPException, Body
 import os
 
-# 🔁 CHANGE THIS IMPORT ONLY if path differs
-from Agent.agent.engine import AgentEngine  
-
 app = FastAPI(title="Agentic Honeypot API")
 
-# 🔐 API KEY (set in Railway Variables)
+# 🔐 API KEY
 API_KEY = os.getenv("HONEYPOT_API_KEY", "CHANGE_THIS_SECRET_KEY")
 
-# 🧠 Initialize Agent ONCE
-agent = AgentEngine()
+# 🧠 Lazy agent holder
+agent_instance = None
+
+
+def get_agent():
+    global agent_instance
+    if agent_instance is None:
+        try:
+            # ⬇️ IMPORT INSIDE FUNCTION (CRITICAL)
+            from Agent.agent.engine import AgentEngine
+            agent_instance = AgentEngine()
+        except Exception as e:
+            raise RuntimeError(f"Agent initialization failed: {e}")
+    return agent_instance
 
 
 # --------------------------------------------------
-# ROOT (health check)
+# ROOT
 # --------------------------------------------------
 @app.get("/")
 def root():
@@ -22,7 +31,7 @@ def root():
 
 
 # --------------------------------------------------
-# TESTER ENDPOINT (DO NOT CHANGE THIS)
+# TESTER ENDPOINT (DO NOT TOUCH)
 # --------------------------------------------------
 @app.api_route("/honeypot", methods=["GET", "POST"])
 def honeypot_test(x_api_key: str = Header(...)):
@@ -37,7 +46,7 @@ def honeypot_test(x_api_key: str = Header(...)):
 
 
 # --------------------------------------------------
-# LIVE AGENTIC HONEYPOT (REAL LOGIC)
+# LIVE AGENTIC HONEYPOT
 # --------------------------------------------------
 @app.post("/honeypot/live")
 def honeypot_live(
@@ -47,24 +56,19 @@ def honeypot_live(
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    message = payload.get("message", "")
+    message = payload.get("message")
     session_id = payload.get("session_id", "default")
 
     if not message:
         raise HTTPException(status_code=400, detail="Message is required")
 
-    # 🧠 Call your agent
-    result = agent.handle(message, session_id=session_id)
+    try:
+        agent = get_agent()
+        result = agent.handle(message, session_id=session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # 🔁 Handle both dict / string agent outputs safely
     if isinstance(result, dict):
-        return {
-            "reply": result.get("reply"),
-            "phase": result.get("phase"),
-            "intent": result.get("intent"),
-            "extracted_intel": result.get("intel")
-        }
+        return result
 
-    return {
-        "reply": result
-    }
+    return {"reply": result}
