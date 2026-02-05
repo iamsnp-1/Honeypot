@@ -1,113 +1,108 @@
 from .state import ConversationState
-from .scenarios import SCENARIOS
 from .intelligence import IntelligenceProfile
 from .planner import AgentPlanner
 import time
 
+# ---------------- CORE MESSAGE HANDLER ---------------- #
 
 def process_message(session_state, incoming_text):
     """
-    Main API function - processes scammer message and returns structured response
+    Main agent brain – single-turn, no loops, no repetition
     """
 
-    # ---- INITIALIZE SESSION ONCE ----
+    text = incoming_text.lower()
+
+    # -------- INIT (RUN ONCE) -------- #
     if session_state.intelligence is None:
         session_state.intelligence = IntelligenceProfile()
         session_state.planner = AgentPlanner()
+        session_state.resolved_probes = set()
+        session_state.turns = 0
         session_state.persona = {
-            "language": "English",
-            "tone": "middle-class cautious",
-            "tech_skill": "low",
             "fear_level": 0.3,
             "phase": session_state.phase.value
         }
 
-    # ---- EXTRACT INTELLIGENCE FROM CURRENT MESSAGE ----
+    # -------- STORE SCAMMER MESSAGE -------- #
+    session_state.history.append({
+        "timestamp": time.time(),
+        "sender": "scammer",
+        "message": incoming_text
+    })
+
+    # -------- EXTRACT INTELLIGENCE -------- #
     session_state.intelligence.extract(incoming_text)
 
-    # ---- APPEND SCAMMER MESSAGE (NO DUPLICATES) ----
-    if not session_state.history or session_state.history[-1]["message"] != incoming_text:
-        session_state.history.append({
-            "timestamp": time.time(),
-            "sender": "scammer",
-            "message": incoming_text
-        })
+    intel = session_state.intelligence.to_dict()
 
-    # ---- INTENT DETECTION ----
-    intent = session_state.planner.detect_intent(incoming_text)
-    session_state.add_intent(intent)
+    # -------- MARK WHAT SCAMMER ALREADY GAVE -------- #
+    if "₹" in text or "rs" in text or "transfer" in text:
+        session_state.resolved_probes.add("transaction")
 
-    # ---- DELAY SCENARIO LOCKING UNTIL ENOUGH CONTEXT ----
-    if session_state.scenario is None and session_state.turns >= 1:
-        session_state.scenario = session_state.planner.select_scenario_from_evidence(
-            incoming_text,
-            intent
+    if "@" in text and "upi" in text:
+        session_state.resolved_probes.add("upi")
+
+    if any(c.isdigit() for c in text) and len(text) >= 10:
+        session_state.resolved_probes.add("phone")
+
+    if "http" in text or "www" in text:
+        session_state.resolved_probes.add("link")
+
+    if "account" in text or "bank" in text:
+        session_state.resolved_probes.add("bank")
+
+    # -------- BAIT QUESTIONS (STRICT ORDER, ASK ONCE) -------- #
+    if "transaction" not in session_state.resolved_probes:
+        reply = "Which transaction are you referring to?"
+
+    elif "upi" not in session_state.resolved_probes:
+        reply = "Which UPI ID was this payment sent to?"
+
+    elif "phone" not in session_state.resolved_probes:
+        reply = "Is this linked to my registered mobile number?"
+
+    elif "bank" not in session_state.resolved_probes:
+        reply = "Which bank account is this showing from your side?"
+
+    elif "link" not in session_state.resolved_probes:
+        reply = "The link isn’t opening for me. Can you resend it?"
+
+    else:
+        # -------- FALLBACK HUMAN RESPONSE -------- #
+        reply = session_state.planner.generate_reply(
+            session_state.planner.choose_strategy(session_state),
+            session_state
         )
 
-    # ---- UPDATE PERSONA PHASE ----
-    session_state.persona["phase"] = session_state.phase.value
-
-    # ---- UPDATE PHASE BASED ON PRESSURE ----
-    session_state.update_phase(intent)
-
-    # ---- STRATEGY + REPLY GENERATION ----
-    strategy = session_state.planner.choose_strategy(session_state)
-    reply = session_state.planner.generate_reply(strategy, session_state)
-
-    # ---- STORE AGENT REPLY ----
+    # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
         "timestamp": time.time(),
         "sender": "agent",
         "message": reply
     })
-    text = incoming_text.lower()
 
-    # ✅ Mark transaction clarified
-    if "₹" in text or "rs" in text or "transfer" in text:
-        session_state.resolved_probes.add("transaction")
-    
-    # ✅ Mark UPI given
-    if "@" in text and "upi" in text:
-        session_state.resolved_probes.add("upi")
-    
-    # ✅ Mark phone number
-    if any(char.isdigit() for char in text) and len(text) >= 10:
-        session_state.resolved_probes.add("phone")
-    
-    # ✅ Mark link
-    if "http" in text or "www" in text:
-        session_state.resolved_probes.add("link")
-
-    # ---- ENGAGEMENT CHECK ----
-    engagement_complete = session_state.is_complete()
-
-    # ---- FEAR PROGRESSION ----
-    if "otp" in incoming_text.lower() or "upi" in incoming_text.lower():
+    # -------- FEAR PROGRESSION -------- #
+    if "otp" in text or "upi" in text:
         session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.1)
     else:
         session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.05)
 
-    # ---- TURN INCREMENT ----
     session_state.turns += 1
 
     return {
         "reply": reply,
-        "engagement_complete": engagement_complete,
-        "intelligence": session_state.intelligence.to_dict(),
+        "engagement_complete": session_state.turns >= 6,
+        "intelligence": intel,
         "notes": session_state.intelligence.get_notes()
     }
 
 
-# ---------------- APP ENTRY POINT ---------------- #
+# ---------------- FASTAPI ENTRY POINT ---------------- #
 
 _AGENT_SESSIONS = {}
 
 def agent_handle_message(session_id: str, message: str) -> dict:
-    """
-    Entry point for FastAPI app
-    """
     if session_id not in _AGENT_SESSIONS:
         _AGENT_SESSIONS[session_id] = ConversationState(session_id)
 
-    session_state = _AGENT_SESSIONS[session_id]
-    return process_message(session_state, message)
+    return process_message(_AGENT_SESSIONS[session_id], message)
