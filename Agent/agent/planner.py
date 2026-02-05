@@ -252,3 +252,24 @@ class AgentPlanner:
             if intent == "authority_claim":
                 return next(s for s in SCENARIOS if s.name == "bank_freeze")
             return None
+            
+    def generate_bait_question(state):
+    intel = state.intelligence.to_dict()
+
+    # 1️⃣ Ask for UPI ID
+    if not intel.get("upiIds"):
+        return "Which UPI ID was this payment sent to?"
+
+    # 2️⃣ Ask for phone number
+    if not intel.get("phoneNumbers"):
+        return "Is this linked to my registered mobile number?"
+
+    # 3️⃣ Ask for bank / account
+    if not intel.get("bankAccounts"):
+        return "Can you confirm which bank account this is showing?"
+
+    # 4️⃣ Ask for link
+    if not intel.get("phishingLinks"):
+        return "The link you sent didn’t open. Can you resend it?"
+
+    return None
