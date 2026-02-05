@@ -1,12 +1,15 @@
-from Agent.agent.api import agent_handle_message
+def get_agent_reply(session, incoming_text):
 
-def get_agent_reply(session: dict, latest_message: str) -> str:
-    result = agent_handle_message(
-        session_id=session["sessionId"],
-        message=latest_message
+    # ✅ create ONCE
+    if "agent_state" not in session:
+        session["agent_state"] = ConversationState(
+            session_id=session["sessionId"]
+        )
+
+    # ✅ reuse same state
+    result = process_message(
+        session["agent_state"],
+        incoming_text
     )
-
-    # Attach intelligence snapshot to session
-    session["extractedIntelligence"] = result.get("intelligence", {})
 
     return result["reply"]
