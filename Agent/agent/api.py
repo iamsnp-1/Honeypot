@@ -60,6 +60,23 @@ def process_message(session_state, incoming_text):
         "sender": "agent",
         "message": reply
     })
+    text = incoming_text.lower()
+
+    # ✅ Mark transaction clarified
+    if "₹" in text or "rs" in text or "transfer" in text:
+        session_state.resolved_probes.add("transaction")
+    
+    # ✅ Mark UPI given
+    if "@" in text and "upi" in text:
+        session_state.resolved_probes.add("upi")
+    
+    # ✅ Mark phone number
+    if any(char.isdigit() for char in text) and len(text) >= 10:
+        session_state.resolved_probes.add("phone")
+    
+    # ✅ Mark link
+    if "http" in text or "www" in text:
+        session_state.resolved_probes.add("link")
 
     # ---- ENGAGEMENT CHECK ----
     engagement_complete = session_state.is_complete()
