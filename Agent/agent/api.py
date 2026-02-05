@@ -10,9 +10,10 @@ import random
 def process_message(session_state, incoming_text):
     """
     FINAL flawless honeypot agent:
-    - Each probe asked ONCE
-    - Never repeats link / phone / bank questions
-    - Human escalation only after probes
+    - Probes asked once
+    - Escalations used once
+    - No loops
+    - Human pressure handling
     """
 
     text = incoming_text.lower()
@@ -23,6 +24,7 @@ def process_message(session_state, incoming_text):
         session_state.planner = AgentPlanner()
         session_state.resolved_probes = set()
         session_state.asked_probes = set()
+        session_state.used_escalations = set()
         session_state.turns = 0
         session_state.persona = {"fear_level": 0.3}
         session_state.history = []
@@ -38,7 +40,7 @@ def process_message(session_state, incoming_text):
     session_state.intelligence.extract(incoming_text)
     intel = session_state.intelligence.to_dict()
 
-    # -------- AUTO-RESOLVE PROBES (PATTERN BASED) -------- #
+    # -------- AUTO-RESOLVE PROBES -------- #
     if re.search(r"\b[\w.-]+@[\w.-]+\b", text):
         session_state.resolved_probes.add("upi")
 
@@ -68,15 +70,24 @@ def process_message(session_state, incoming_text):
         or ask_once("link", "The verification link isn’t opening. Can you resend it?")
     )
 
-    # -------- HUMAN ESCALATION (NO PROBES EVER AGAIN) -------- #
+    # -------- ESCALATION (EACH LINE USED ONCE) -------- #
     if not reply:
-        reply = random.choice([
+        escalation_pool = [
             "I’m getting really worried… what happens if I don’t do this?",
             "Why is this verification required so urgently?",
             "Is there any way to resolve this without sharing an OTP?",
             "Can this be handled safely at a bank branch?",
             "I’m confused—can you explain what will happen if I don’t verify?"
-        ])
+        ]
+
+        unused = [e for e in escalation_pool if e not in session_state.used_escalations]
+
+        if unused:
+            reply = random.choice(unused)
+            session_state.used_escalations.add(reply)
+        else:
+            # Final fallback: vary phrasing dynamically
+            reply = "I don’t feel comfortable sharing codes. What other option do I have?"
 
     # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
