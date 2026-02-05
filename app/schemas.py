@@ -1,21 +1,19 @@
+from typing import Optional, List, Dict
 from pydantic import BaseModel
-from typing import List, Optional
+
 
 class Message(BaseModel):
-    sender: str
-    text: str
-    timestamp: str
+    sender: Optional[str] = None
+    text: Optional[str] = None
+    timestamp: Optional[str] = None
 
-class Metadata(BaseModel):
-    channel: Optional[str]
-    language: Optional[str]
-    locale: Optional[str]
 
 class MessageRequest(BaseModel):
-    sessionId: str
-    message: Message
-    conversationHistory: List[Message] = []
-    metadata: Optional[Metadata]=None
+    sessionId: Optional[str] = None
+    message: Optional[Message] = None
+    conversationHistory: Optional[List[Dict]] = []
+    metadata: Optional[Dict] = {}
+
 
 class MessageResponse(BaseModel):
     status: str
