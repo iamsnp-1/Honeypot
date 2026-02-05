@@ -66,19 +66,17 @@ async def receive_message(request: Request):
         # ----------------------------
         # SCAM DETECTION
         # ----------------------------
-        detection = detect_scam(text, session) or {}
+        detection = detect_scam(data.message.text, session)
 
-        if detection.get("scamDetected") and not session.get("agentActive"):
+        if detection["scamDetected"]:
             session["scamDetected"] = True
             session["agentActive"] = True
-
-        # ----------------------------
-        # AGENT
-        # ----------------------------
-        if True :
-            reply = get_agent_reply(session, text)
+        
+        if not session["agentActive"]:
+            reply = "Service is down"
         else:
-            reply = "Okay."
+            reply = get_agent_reply(session, data.message.text)
+
 
         # ----------------------------
         # INTELLIGENCE (never crash)
@@ -94,6 +92,7 @@ async def receive_message(request: Request):
         # 🔥 LAST RESORT (no 500 to GUVI)
         traceback.print_exc()
         return {"status": "success", "reply": "Service is down"}
+
 
 
 
