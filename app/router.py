@@ -75,7 +75,7 @@ async def receive_message(request: Request):
         # ----------------------------
         # AGENT
         # ----------------------------
-        if session.get("agentActive"):
+        if True :
             reply = get_agent_reply(session, text)
         else:
             reply = "Okay."
@@ -94,5 +94,6 @@ async def receive_message(request: Request):
         # 🔥 LAST RESORT (no 500 to GUVI)
         traceback.print_exc()
         return {"status": "success", "reply": "Service is down"}
+
 
 
