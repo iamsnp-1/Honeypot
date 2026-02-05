@@ -2,27 +2,25 @@ from .state import ConversationState
 from .intelligence import IntelligenceProfile
 from .planner import AgentPlanner
 import time
+import re
 
 # ---------------- CORE MESSAGE HANDLER ---------------- #
 
 def process_message(session_state, incoming_text):
     """
-    Main agent brain – single-turn, memory-safe, no repetition
+    Intelligent honeypot agent – NO repetition, progressive extraction
     """
 
     text = incoming_text.lower()
 
-    # -------- INIT (RUN ONCE) -------- #
+    # -------- INIT (RUN ONCE PER SESSION) -------- #
     if session_state.intelligence is None:
         session_state.intelligence = IntelligenceProfile()
         session_state.planner = AgentPlanner()
         session_state.resolved_probes = set()
-        session_state.last_question_type = None
         session_state.turns = 0
-        session_state.persona = {
-            "fear_level": 0.3,
-            "phase": session_state.phase.value
-        }
+        session_state.persona = {"fear_level": 0.3}
+        session_state.history = []
 
     # -------- STORE SCAMMER MESSAGE -------- #
     session_state.history.append({
@@ -35,52 +33,48 @@ def process_message(session_state, incoming_text):
     session_state.intelligence.extract(incoming_text)
     intel = session_state.intelligence.to_dict()
 
-    # -------- MARK WHAT SCAMMER ALREADY GAVE -------- #
+    # -------- AUTO-RESOLVE PROBES (ROBUST) -------- #
 
-    # Transaction info
-    if "₹" in text or "rs" in text or "transfer" in text:
-        session_state.resolved_probes.add("transaction")
-
-    # ✅ FIXED: UPI detection (do NOT require word "upi")
-    if "@" in text:
+    # UPI ID (anything@anything)
+    if re.search(r"\b[\w.-]+@[\w.-]+\b", text):
         session_state.resolved_probes.add("upi")
 
-    # Phone number
-    if sum(c.isdigit() for c in text) >= 10:
+    # Phone number (10+ digits)
+    if re.search(r"\b\d{10,}\b", text):
         session_state.resolved_probes.add("phone")
 
-    # Phishing link
-    if "http" in text or "www" in text:
-        session_state.resolved_probes.add("link")
-
-    # Bank / account
-    if "account" in text or "bank" in text:
+    # Bank / account number
+    if "account" in text or re.search(r"\b\d{12,18}\b", text):
         session_state.resolved_probes.add("bank")
 
-    # -------- SMART BAIT QUESTIONS (ASK ONCE) -------- #
-    reply = None
+    # Link
+    if re.search(r"https?://", text):
+        session_state.resolved_probes.add("link")
 
-    def ask_once(key, question):
-        if key not in session_state.resolved_probes and session_state.last_question_type != key:
-            session_state.last_question_type = key
-            return question
-        return None
+    # OTP mention
+    if "otp" in text or re.search(r"\b\d{4,8}\b", text):
+        session_state.resolved_probes.add("otp")
 
-    reply = (
-        ask_once("transaction", "Which transaction are you referring to?")
-        or ask_once("upi", "Which UPI ID was this payment sent to?")
-        or ask_once("phone", "Is this linked to my registered mobile number?")
-        or ask_once("bank", "Which bank account is this showing from your side?")
-        or ask_once("link", "The link isn’t opening for me. Can you resend it?")
-    )
+    # -------- INTELLIGENT QUESTION FLOW (NO LOOP) -------- #
 
-    # -------- FALLBACK HUMAN RESPONSE -------- #
-    if reply is None:
+    if "upi" not in session_state.resolved_probes:
+        reply = "Which UPI ID was this payment sent to?"
+
+    elif "bank" not in session_state.resolved_probes:
+        reply = "Which bank account is this related to?"
+
+    elif "phone" not in session_state.resolved_probes:
+        reply = "Is this linked to my registered mobile number?"
+
+    elif "link" not in session_state.resolved_probes:
+        reply = "The verification link isn’t opening. Can you resend it?"
+
+    else:
+        # FINAL PHASE – keep scammer talking without giving info
         reply = session_state.planner.generate_reply(
             session_state.planner.choose_strategy(session_state),
             session_state
         )
-        session_state.last_question_type = None
 
     # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
@@ -89,17 +83,11 @@ def process_message(session_state, incoming_text):
         "message": reply
     })
 
-    # -------- FEAR PROGRESSION -------- #
-    if "otp" in text or "upi" in text:
-        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.1)
-    else:
-        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.05)
-
     session_state.turns += 1
 
     return {
         "reply": reply,
-        "engagement_complete": session_state.is_complete(),
+        "engagement_complete": session_state.turns >= 8,
         "intelligence": intel,
         "notes": session_state.intelligence.get_notes()
     }
