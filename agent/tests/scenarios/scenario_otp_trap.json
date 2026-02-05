@@ -1,0 +1,9 @@
+{
+  "name": "otp_trap",
+  "initial_phase": "hook",
+  "conversation": [
+    "To verify account you will receive OTP.",
+    "Share the OTP once you receive it.",
+    "Why are you not sharing OTP yet?"
+  ]
+}

@@ -1,66 +1,55 @@
-[
-  {
-    "sender": "scammer",
-    "message": "you have been awarded 1000 rupees"
+{
+  "session_id": "test_session",
+  "scenario": null,
+  "phase": "hook",
+  "turns": 2,
+  "conversation_history": [
+    {
+      "timestamp": 1770209785.9314787,
+      "sender": "scammer",
+      "message": "i want 10000 immideately"
+    },
+    {
+      "timestamp": 1770209785.9349697,
+      "sender": "agent",
+      "message": "Sorry, who is calling?"
+    },
+    {
+      "timestamp": 1770209832.0690136,
+      "sender": "scammer",
+      "message": "rahul"
+    },
+    {
+      "timestamp": 1770209832.069948,
+      "sender": "agent",
+      "message": "Hello, who am I talking to?"
+    },
+    {
+      "timestamp": 1770209843.8210926,
+      "sender": "scammer",
+      "message": "i am your friend from college"
+    },
+    {
+      "timestamp": 1770209843.821783,
+      "sender": "agent",
+      "message": "Alright... what's wrong with my account?"
+    }
+  ],
+  "intelligence_gathered": {
+    "upiIds": [],
+    "phoneNumbers": [],
+    "phishingLinks": [],
+    "bankAccounts": [],
+    "suspiciousKeywords": {}
   },
-  {
-    "sender": "agent",
-    "message": "Who is this?"
+  "extracted_info": {},
+  "persona": {
+    "language": "English",
+    "tone": "middle-class cautious",
+    "tech_skill": "low",
+    "fear_level": 0.3,
+    "phase": "hook"
   },
-  {
-    "sender": "scammer",
-    "message": "bank"
-  },
-  {
-    "sender": "agent",
-    "message": "Who are you calling?"
-  },
-  {
-    "sender": "scammer",
-    "message": "suyash"
-  },
-  {
-    "sender": "agent",
-    "message": "How did you get my number?"
-  },
-  {
-    "sender": "scammer",
-    "message": "we have in records"
-  },
-  {
-    "sender": "agent",
-    "message": "Which bank are you from?"
-  },
-  {
-    "sender": "scammer",
-    "message": "Axis"
-  },
-  {
-    "sender": "agent",
-    "message": "Send me official email first.\nCan I call back?"
-  },
-  {
-    "sender": "scammer",
-    "message": "Give me OTP which i send on your device"
-  },
-  {
-    "sender": "agent",
-    "message": "Can you send verification link?"
-  },
-  {
-    "sender": "scammer",
-    "message": "no"
-  },
-  {
-    "sender": "agent",
-    "message": "Network issue here.\nHmm..."
-  },
-  {
-    "sender": "scammer",
-    "message": "just OTP"
-  },
-  {
-    "sender": "agent",
-    "message": "App is hanging.\nAre you sure?"
-  }
-]
+  "notes": "Social engineering attempt",
+  "timestamp": 1770209843.822657
+}
