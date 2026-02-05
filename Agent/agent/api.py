@@ -9,11 +9,10 @@ import random
 
 def process_message(session_state, incoming_text):
     """
-    Final flawless honeypot agent:
-    - No repeated questions
-    - Progressive intelligence extraction
-    - Human escalation
-    - Self-correction
+    FINAL flawless honeypot agent:
+    - Each probe asked ONCE
+    - Never repeats link / phone / bank questions
+    - Human escalation only after probes
     """
 
     text = incoming_text.lower()
@@ -23,7 +22,7 @@ def process_message(session_state, incoming_text):
         session_state.intelligence = IntelligenceProfile()
         session_state.planner = AgentPlanner()
         session_state.resolved_probes = set()
-        session_state.last_question_type = None
+        session_state.asked_probes = set()
         session_state.turns = 0
         session_state.persona = {"fear_level": 0.3}
         session_state.history = []
@@ -55,10 +54,10 @@ def process_message(session_state, incoming_text):
     if "otp" in text or re.search(r"\b\d{4,8}\b", text):
         session_state.resolved_probes.add("otp")
 
-    # -------- ASK EACH PROBE ONLY ONCE -------- #
+    # -------- ASK EACH PROBE EXACTLY ONCE -------- #
     def ask_once(probe, question):
-        if probe not in session_state.resolved_probes and session_state.last_question_type != probe:
-            session_state.last_question_type = probe
+        if probe not in session_state.asked_probes and probe not in session_state.resolved_probes:
+            session_state.asked_probes.add(probe)
             return question
         return None
 
@@ -69,16 +68,15 @@ def process_message(session_state, incoming_text):
         or ask_once("link", "The verification link isn’t opening. Can you resend it?")
     )
 
-    # -------- HUMAN ESCALATION (NO PROBE LOOP) -------- #
+    # -------- HUMAN ESCALATION (NO PROBES EVER AGAIN) -------- #
     if not reply:
         reply = random.choice([
-            "I’m getting worried… what happens if I don’t do this?",
-            "Why is this verification needed right now?",
-            "Is there another way to resolve this without sharing codes?",
-            "Can this be handled at a bank branch instead?",
-            "This is confusing me—can you explain it once more?"
+            "I’m getting really worried… what happens if I don’t do this?",
+            "Why is this verification required so urgently?",
+            "Is there any way to resolve this without sharing an OTP?",
+            "Can this be handled safely at a bank branch?",
+            "I’m confused—can you explain what will happen if I don’t verify?"
         ])
-        session_state.last_question_type = "escalation"
 
     # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
@@ -86,12 +84,6 @@ def process_message(session_state, incoming_text):
         "sender": "agent",
         "message": reply
     })
-
-    # -------- FEAR PROGRESSION -------- #
-    if "otp" in text:
-        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.1)
-    else:
-        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.05)
 
     session_state.turns += 1
 
