@@ -1,18 +1,22 @@
 from agent.api import process_message
 from agent.state import ConversationState
 
-# Store session-level agent states
-AGENT_SESSIONS = {}
 
 def get_agent_reply(session: dict, incoming_text: str) -> str:
-    session_id = session["sessionId"]
+    # Create state object once per session
+    if "agent_state" not in session:
+        session["agent_state"] = ConversationState(
+            session_id=session["sessionId"]
+        )
 
-    # Create agent state once per session
-    if session_id not in AGENT_SESSIONS:
-        AGENT_SESSIONS[session_id] = ConversationState(session_id=session_id)
+    state = session["agent_state"]
 
-    agent_state = AGENT_SESSIONS[session_id]
+    result = process_message(
+        session_state=state,
+        incoming_text=incoming_text
+    )
 
-    result = process_message(agent_state, incoming_text)
+    # Save extracted intelligence back into session
+    session["extractedIntelligence"] = result.get("intelligence", {})
 
     return result["reply"]
