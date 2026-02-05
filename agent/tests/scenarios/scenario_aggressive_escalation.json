@@ -1,9 +1,0 @@
-{
-  "name": "aggressive_escalation",
-  "initial_phase": "hook",
-  "conversation": [
-    "Final warning. Account freeze in 10 minutes.",
-    "You will not be able to withdraw money.",
-    "Share your UPI now or account will be frozen."
-  ]
-}

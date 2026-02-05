@@ -1,9 +1,0 @@
-{
-  "name": "channel_shift",
-  "initial_phase": "hook",
-  "conversation": [
-    "Call me on WhatsApp for fast verification.",
-    "Why you are not calling? Account will be blocked.",
-    "Last chance, call immediately."
-  ]
-}
