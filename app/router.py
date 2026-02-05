@@ -32,8 +32,16 @@ async def receive_message(request: Request):
         except Exception:
             body = None
 
-        if not body or "sessionId" not in body or "message" not in body:
+        # GUVI endpoint tester probe (no real message)
+        if (
+            not body
+            or "sessionId" not in body
+            or "message" not in body
+            or not body["message"]
+            or not body["message"].get("text")
+        ):
             return {"status": "success", "reply": "Service is up"}
+
 
         # ----------------------------
         # SAFE PARSING
@@ -86,3 +94,4 @@ async def receive_message(request: Request):
         # 🔥 LAST RESORT (no 500 to GUVI)
         traceback.print_exc()
         return {"status": "success", "reply": "Service is up"}
+
