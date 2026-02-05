@@ -1,19 +1,12 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 import os
 
 app = FastAPI(title="Agentic Honeypot API")
 
-# API Key (from Railway Variables)
 API_KEY = os.getenv("HONEYPOT_API_KEY", "CHANGE_THIS_SECRET_KEY")
 
 
-@app.get("/")
-def root():
-    return {"status": "running"}
-
-
-# 🔐 REQUIRED TEST ENDPOINT (ADD THIS)
-@app.get("/honeypot")
+@app.api_route("/honeypot", methods=["GET", "POST"])
 def honeypot_test(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
