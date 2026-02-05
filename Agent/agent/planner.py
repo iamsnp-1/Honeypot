@@ -151,6 +151,13 @@ class AgentPlanner:
     
     def generate_reply(self, strategy, state):
         """Generate human-like reply with acknowledgment, hedging, and soft probing"""
+        bait = generate_bait_question(state)
+        if bait:
+            return bait
+    
+        # fallback to existing strategy
+        return self.strategy_responses[strategy](state)
+        
         persona = state.persona
         fear_level = persona.get("fear_level", 0.3)
         
