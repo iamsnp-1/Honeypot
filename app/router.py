@@ -77,4 +77,3 @@ async def receive_message(
 def get_intelligence(session_id: str):
     session = get_session(session_id)
     return session.get("extractedIntelligence", {})
-

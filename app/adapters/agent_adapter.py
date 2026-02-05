@@ -1,22 +1,25 @@
-from agent.api import process_message
-from agent.state import ConversationState
+# Adapter for Teammate-2 Agent
+from Agent.agent.api import process_message
+from Agent.agent.state import ConversationState
 
+# in-memory agent sessions
+AGENT_SESSIONS = {}
 
-def get_agent_reply(session: dict, incoming_text: str) -> str:
-    # Create state object once per session
-    if "agent_state" not in session:
-        session["agent_state"] = ConversationState(
-            session_id=session["sessionId"]
+def get_agent_reply(session: dict, latest_message: str) -> str:
+    session_id = session["sessionId"]
+
+    # create agent state once per session
+    if session_id not in AGENT_SESSIONS:
+        AGENT_SESSIONS[session_id] = ConversationState(
+            session_id=session_id
         )
 
-    state = session["agent_state"]
+    agent_state = AGENT_SESSIONS[session_id]
 
+    # 🚨 FAST CALL ONLY — no loops, no sleeps
     result = process_message(
-        session_state=state,
-        incoming_text=incoming_text
+        session_state=agent_state,
+        incoming_text=latest_message
     )
 
-    # Save extracted intelligence back into session
-    session["extractedIntelligence"] = result.get("intelligence", {})
-
-    return result["reply"]
+    return result.get("reply", "Okay.")
