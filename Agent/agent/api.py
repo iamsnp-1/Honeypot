@@ -7,7 +7,7 @@ import time
 
 def process_message(session_state, incoming_text):
     """
-    Main agent brain – single-turn, no loops, no repetition
+    Main agent brain – single-turn, memory-safe, no repetition
     """
 
     text = incoming_text.lower()
@@ -17,6 +17,7 @@ def process_message(session_state, incoming_text):
         session_state.intelligence = IntelligenceProfile()
         session_state.planner = AgentPlanner()
         session_state.resolved_probes = set()
+        session_state.last_question_type = None
         session_state.turns = 0
         session_state.persona = {
             "fear_level": 0.3,
@@ -32,47 +33,54 @@ def process_message(session_state, incoming_text):
 
     # -------- EXTRACT INTELLIGENCE -------- #
     session_state.intelligence.extract(incoming_text)
-
     intel = session_state.intelligence.to_dict()
 
     # -------- MARK WHAT SCAMMER ALREADY GAVE -------- #
+
+    # Transaction info
     if "₹" in text or "rs" in text or "transfer" in text:
         session_state.resolved_probes.add("transaction")
 
-    if "@" in text and "upi" in text:
+    # ✅ FIXED: UPI detection (do NOT require word "upi")
+    if "@" in text:
         session_state.resolved_probes.add("upi")
 
-    if any(c.isdigit() for c in text) and len(text) >= 10:
+    # Phone number
+    if sum(c.isdigit() for c in text) >= 10:
         session_state.resolved_probes.add("phone")
 
+    # Phishing link
     if "http" in text or "www" in text:
         session_state.resolved_probes.add("link")
 
+    # Bank / account
     if "account" in text or "bank" in text:
         session_state.resolved_probes.add("bank")
 
-    # -------- BAIT QUESTIONS (STRICT ORDER, ASK ONCE) -------- #
-    if "transaction" not in session_state.resolved_probes:
-        reply = "Which transaction are you referring to?"
+    # -------- SMART BAIT QUESTIONS (ASK ONCE) -------- #
+    reply = None
 
-    elif "upi" not in session_state.resolved_probes:
-        reply = "Which UPI ID was this payment sent to?"
+    def ask_once(key, question):
+        if key not in session_state.resolved_probes and session_state.last_question_type != key:
+            session_state.last_question_type = key
+            return question
+        return None
 
-    elif "phone" not in session_state.resolved_probes:
-        reply = "Is this linked to my registered mobile number?"
+    reply = (
+        ask_once("transaction", "Which transaction are you referring to?")
+        or ask_once("upi", "Which UPI ID was this payment sent to?")
+        or ask_once("phone", "Is this linked to my registered mobile number?")
+        or ask_once("bank", "Which bank account is this showing from your side?")
+        or ask_once("link", "The link isn’t opening for me. Can you resend it?")
+    )
 
-    elif "bank" not in session_state.resolved_probes:
-        reply = "Which bank account is this showing from your side?"
-
-    elif "link" not in session_state.resolved_probes:
-        reply = "The link isn’t opening for me. Can you resend it?"
-
-    else:
-        # -------- FALLBACK HUMAN RESPONSE -------- #
+    # -------- FALLBACK HUMAN RESPONSE -------- #
+    if reply is None:
         reply = session_state.planner.generate_reply(
             session_state.planner.choose_strategy(session_state),
             session_state
         )
+        session_state.last_question_type = None
 
     # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
@@ -91,7 +99,7 @@ def process_message(session_state, incoming_text):
 
     return {
         "reply": reply,
-        "engagement_complete": session_state.turns >= 6,
+        "engagement_complete": session_state.is_complete(),
         "intelligence": intel,
         "notes": session_state.intelligence.get_notes()
     }
