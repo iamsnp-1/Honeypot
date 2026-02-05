@@ -49,7 +49,7 @@ async def receive_message(request: Request):
         try:
             data = MessageRequest(**body)
         except Exception:
-            return {"status": "success", "reply": "Service is up"}
+            return {"status": "success", "reply": "Service is down"}
 
         # ----------------------------
         # SESSION
@@ -93,6 +93,7 @@ async def receive_message(request: Request):
         # 🔥 LAST RESORT (no 500 to GUVI)
         traceback.print_exc()
         return {"status": "success", "reply": "Service is down"}
+
 
 
 
