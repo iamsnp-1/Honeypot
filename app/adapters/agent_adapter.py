@@ -30,5 +30,11 @@ def get_agent_reply(session: dict, latest_message: str) -> str:
         incoming_text=latest_message
     )
 
-    return result.get("reply", "Okay.")
+    reply = result.get("reply")
+
+    if not reply or not isinstance(reply, str):
+        reply = "Can you explain what I need to do now?"
+    
+    return reply
+
 
