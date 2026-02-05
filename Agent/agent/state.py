@@ -18,6 +18,7 @@ class ConversationState:
         self.intelligence = None
         self.planner = None
         self.persona = None
+        self.resolved_probes = set()
 
     def add_intent(self, intent):
         self.intent_history.append(intent)
@@ -69,3 +70,4 @@ class ConversationState:
             return True
             
         return False
+
