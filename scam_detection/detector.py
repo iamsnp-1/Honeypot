@@ -1,16 +1,16 @@
 # detector.py
 
-from text_signals import analyze_text
-from behavior import analyze_behavior
-from thresholds import (
+from scam_detection.text_signals import analyze_text
+from scam_detection.behavior import analyze_behavior
+from scam_detection.thresholds import (
     SCAM_THRESHOLD,
     MAX_RISK_SCORE,
     ENABLE_LLM_FALLBACK,
     LLM_LOWER_BOUND,
     LLM_UPPER_BOUND
 )
-from schemas import scam_response
-from llm_fallback import llm_classify
+from scam_detection.schemas import scam_response
+from scam_detection.llm_fallback import llm_classify
 
 
 def detect_scam(message_text: str, conversation_history=None, metadata=None):
