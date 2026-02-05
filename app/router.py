@@ -71,6 +71,7 @@ async def receive_message(request: Request):
         if detection["scamDetected"]:
             session["scamDetected"] = True
             session["agentActive"] = True
+        session["confidence"] = detection["confidence"]
         
         if not session["agentActive"]:
             reply = "Service is down"
@@ -92,6 +93,7 @@ async def receive_message(request: Request):
         # 🔥 LAST RESORT (no 500 to GUVI)
         traceback.print_exc()
         return {"status": "success", "reply": "Service is down"}
+
 
 
 
