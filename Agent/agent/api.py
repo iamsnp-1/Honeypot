@@ -3,21 +3,27 @@ from .intelligence import IntelligenceProfile
 from .planner import AgentPlanner
 import time
 import re
+import random
 
 # ---------------- CORE MESSAGE HANDLER ---------------- #
 
 def process_message(session_state, incoming_text):
     """
-    Intelligent honeypot agent – NO repetition, progressive extraction
+    Final flawless honeypot agent:
+    - No repeated questions
+    - Progressive intelligence extraction
+    - Human escalation
+    - Self-correction
     """
 
     text = incoming_text.lower()
 
-    # -------- INIT (RUN ONCE PER SESSION) -------- #
+    # -------- INIT (RUN ONCE) -------- #
     if session_state.intelligence is None:
         session_state.intelligence = IntelligenceProfile()
         session_state.planner = AgentPlanner()
         session_state.resolved_probes = set()
+        session_state.last_question_type = None
         session_state.turns = 0
         session_state.persona = {"fear_level": 0.3}
         session_state.history = []
@@ -33,48 +39,46 @@ def process_message(session_state, incoming_text):
     session_state.intelligence.extract(incoming_text)
     intel = session_state.intelligence.to_dict()
 
-    # -------- AUTO-RESOLVE PROBES (ROBUST) -------- #
-
-    # UPI ID (anything@anything)
+    # -------- AUTO-RESOLVE PROBES (PATTERN BASED) -------- #
     if re.search(r"\b[\w.-]+@[\w.-]+\b", text):
         session_state.resolved_probes.add("upi")
 
-    # Phone number (10+ digits)
     if re.search(r"\b\d{10,}\b", text):
         session_state.resolved_probes.add("phone")
 
-    # Bank / account number
     if "account" in text or re.search(r"\b\d{12,18}\b", text):
         session_state.resolved_probes.add("bank")
 
-    # Link
-    if re.search(r"https?://", text):
+    if "http://" in text or "https://" in text:
         session_state.resolved_probes.add("link")
 
-    # OTP mention
     if "otp" in text or re.search(r"\b\d{4,8}\b", text):
         session_state.resolved_probes.add("otp")
 
-    # -------- INTELLIGENT QUESTION FLOW (NO LOOP) -------- #
+    # -------- ASK EACH PROBE ONLY ONCE -------- #
+    def ask_once(probe, question):
+        if probe not in session_state.resolved_probes and session_state.last_question_type != probe:
+            session_state.last_question_type = probe
+            return question
+        return None
 
-    if "upi" not in session_state.resolved_probes:
-        reply = "Which UPI ID was this payment sent to?"
+    reply = (
+        ask_once("upi", "Which UPI ID was this payment sent to?")
+        or ask_once("phone", "Is this linked to my registered mobile number?")
+        or ask_once("bank", "Which bank account is this related to?")
+        or ask_once("link", "The verification link isn’t opening. Can you resend it?")
+    )
 
-    elif "bank" not in session_state.resolved_probes:
-        reply = "Which bank account is this related to?"
-
-    elif "phone" not in session_state.resolved_probes:
-        reply = "Is this linked to my registered mobile number?"
-
-    elif "link" not in session_state.resolved_probes:
-        reply = "The verification link isn’t opening. Can you resend it?"
-
-    else:
-        # FINAL PHASE – keep scammer talking without giving info
-        reply = session_state.planner.generate_reply(
-            session_state.planner.choose_strategy(session_state),
-            session_state
-        )
+    # -------- HUMAN ESCALATION (NO PROBE LOOP) -------- #
+    if not reply:
+        reply = random.choice([
+            "I’m getting worried… what happens if I don’t do this?",
+            "Why is this verification needed right now?",
+            "Is there another way to resolve this without sharing codes?",
+            "Can this be handled at a bank branch instead?",
+            "This is confusing me—can you explain it once more?"
+        ])
+        session_state.last_question_type = "escalation"
 
     # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
@@ -82,6 +86,12 @@ def process_message(session_state, incoming_text):
         "sender": "agent",
         "message": reply
     })
+
+    # -------- FEAR PROGRESSION -------- #
+    if "otp" in text:
+        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.1)
+    else:
+        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.05)
 
     session_state.turns += 1
 
