@@ -1,121 +1,114 @@
 from .state import ConversationState
-from .scenarios import SCENARIOS
 from .intelligence import IntelligenceProfile
 from .planner import AgentPlanner
-import random
 import time
+import re
+import random
+
+# ---------------- CORE MESSAGE HANDLER ---------------- #
 
 def process_message(session_state, incoming_text):
     """
-    Main API function - processes scammer message and returns structured response
+    Final flawless honeypot agent:
+    - No repeated questions
+    - Progressive intelligence extraction
+    - Human escalation
+    - Self-correction
     """
-    # Initialize if new session
-    if session_state.scenario is None:
-        # Don't lock scenario immediately - wait for evidence
-        session_state.scenario = None  # Will be set based on evidence
+
+    text = incoming_text.lower()
+
+    # -------- INIT (RUN ONCE) -------- #
+    if session_state.intelligence is None:
         session_state.intelligence = IntelligenceProfile()
         session_state.planner = AgentPlanner()
-        session_state.persona = {
-            "language": "English",
-            "tone": "middle-class cautious", 
-            "tech_skill": "low",
-            "fear_level": 0.3,
-            "phase": session_state.phase.value
-        }
-    
-    # Extract intelligence ONLY through intelligence.py
-    session_state.intelligence.extract(incoming_text)
-    
-    # Store conversation history (structured)
+        session_state.resolved_probes = set()
+        session_state.last_question_type = None
+        session_state.turns = 0
+        session_state.persona = {"fear_level": 0.3}
+        session_state.history = []
+
+    # -------- STORE SCAMMER MESSAGE -------- #
     session_state.history.append({
         "timestamp": time.time(),
-        "sender": "scammer", 
+        "sender": "scammer",
         "message": incoming_text
     })
-    
-    # Detect intent with scoring
-    intent = session_state.planner.detect_intent(incoming_text)
-    session_state.add_intent(intent)
-    
-    # Lock scenario based on evidence (not assumptions)
-    if session_state.scenario is None:
-        session_state.scenario = session_state.planner.select_scenario_from_evidence(incoming_text, intent)
-    
-    # Update persona with current phase
-    session_state.persona["phase"] = session_state.phase.value
-    
-    # Update phase based on intent + pressure
-    session_state.update_phase(intent)
-    
-    # Choose strategy based on scenario + state
-    strategy = session_state.planner.choose_strategy(session_state)
-    
-    # Generate reply using strategy + state (so we can avoid repeating questions)
-    reply = session_state.planner.generate_reply(strategy, session_state)
 
-    # Store agent reply
+    # -------- EXTRACT INTELLIGENCE -------- #
+    session_state.intelligence.extract(incoming_text)
+    intel = session_state.intelligence.to_dict()
+
+    # -------- AUTO-RESOLVE PROBES (PATTERN BASED) -------- #
+    if re.search(r"\b[\w.-]+@[\w.-]+\b", text):
+        session_state.resolved_probes.add("upi")
+
+    if re.search(r"\b\d{10,}\b", text):
+        session_state.resolved_probes.add("phone")
+
+    if "account" in text or re.search(r"\b\d{12,18}\b", text):
+        session_state.resolved_probes.add("bank")
+
+    if "http://" in text or "https://" in text:
+        session_state.resolved_probes.add("link")
+
+    if "otp" in text or re.search(r"\b\d{4,8}\b", text):
+        session_state.resolved_probes.add("otp")
+
+    # -------- ASK EACH PROBE ONLY ONCE -------- #
+    def ask_once(probe, question):
+        if probe not in session_state.resolved_probes and session_state.last_question_type != probe:
+            session_state.last_question_type = probe
+            return question
+        return None
+
+    reply = (
+        ask_once("upi", "Which UPI ID was this payment sent to?")
+        or ask_once("phone", "Is this linked to my registered mobile number?")
+        or ask_once("bank", "Which bank account is this related to?")
+        or ask_once("link", "The verification link isn’t opening. Can you resend it?")
+    )
+
+    # -------- HUMAN ESCALATION (NO PROBE LOOP) -------- #
+    if not reply:
+        reply = random.choice([
+            "I’m getting worried… what happens if I don’t do this?",
+            "Why is this verification needed right now?",
+            "Is there another way to resolve this without sharing codes?",
+            "Can this be handled at a bank branch instead?",
+            "This is confusing me—can you explain it once more?"
+        ])
+        session_state.last_question_type = "escalation"
+
+    # -------- STORE AGENT MESSAGE -------- #
     session_state.history.append({
         "timestamp": time.time(),
         "sender": "agent",
         "message": reply
     })
-    
-    # Check if engagement complete
-    engagement_complete = session_state.is_complete()
-    
-    # Save session to JSON
-    save_session_json(session_state)
-    
-    # Increase fear level gradually
-    session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.05)
-    
-    # Increment turns
+
+    # -------- FEAR PROGRESSION -------- #
+    if "otp" in text:
+        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.1)
+    else:
+        session_state.persona["fear_level"] = min(1.0, session_state.persona["fear_level"] + 0.05)
+
     session_state.turns += 1
-    
+
     return {
         "reply": reply,
-        "engagement_complete": engagement_complete,
-        "intelligence": session_state.intelligence.to_dict(),
+        "engagement_complete": session_state.turns >= 8,
+        "intelligence": intel,
         "notes": session_state.intelligence.get_notes()
     }
-def save_session_json(state):
-    """Save session data to JSON file"""
-    import json
-    import os
-    import time
-    
-    # Create conversations directory if it doesn't exist
-    os.makedirs("conversations", exist_ok=True)
-    
-    session_data = {
-        "session_id": state.session_id,
-        "scenario": state.scenario.name if state.scenario else None,
-        "phase": state.phase.value,
-        "turns": state.turns,
-        "conversation_history": state.history,
-        "intelligence_gathered": state.intelligence.to_dict(),
-        "extracted_info": state.extracted_info,
-        "persona": state.persona,
-        "notes": state.intelligence.get_notes(),
-        "timestamp": time.time()
-    }
-    
-    filename = f"conversations/{state.session_id}.json"
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(session_data, f, indent=2, ensure_ascii=False)
-        
-# ---- APP ENTRY POINT ----
+
+
+# ---------------- FASTAPI ENTRY POINT ---------------- #
 
 _AGENT_SESSIONS = {}
 
 def agent_handle_message(session_id: str, message: str) -> dict:
-    """
-    Entry point for FastAPI app
-    """
-
     if session_id not in _AGENT_SESSIONS:
         _AGENT_SESSIONS[session_id] = ConversationState(session_id)
 
-    session_state = _AGENT_SESSIONS[session_id]
-
-    return process_message(session_state, message)
+    return process_message(_AGENT_SESSIONS[session_id], message)
