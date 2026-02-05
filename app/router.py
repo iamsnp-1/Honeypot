@@ -5,13 +5,14 @@ from app.adapters.intelligence_adapter import process_intelligence
 from .schemas import MessageRequest, MessageResponse
 from .auth import verify_api_key
 from .session_manager import get_or_create_session, get_session, save_message_to_file
-
+from typing import Optional
+from fastapi import Body
 
 router = APIRouter()
 
-@router.post("/message", response_model=MessageResponse)
+@router.post("/message")
 def receive_message(
-    data: MessageRequest,
+    data: Optional[MessageRequest] = Body(default=None),
     _: str = Depends(verify_api_key)
 ):
     session = get_or_create_session(data.sessionId)
@@ -55,3 +56,4 @@ def receive_message(
 def get_intelligence(session_id: str):
     session = get_session(session_id)
     return session.get("extractedIntelligence", {})
+
