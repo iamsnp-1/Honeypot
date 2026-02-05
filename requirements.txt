@@ -1,6 +1,8 @@
 fastapi
 uvicorn
-pydantic
 python-dotenv
+pydantic
+openai
+langchain
 PyYAML
-requests
+regex
